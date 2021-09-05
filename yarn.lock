@@ -46,12 +46,19 @@
   resolved "https://registry.yarnpkg.com/@tsconfig/node16/-/node16-1.0.2.tgz#423c77877d0569db20e1fc80885ac4118314010e"
   integrity sha512-eZxlbI8GZscaGS7kkc/trHTT5xgrjH3/1n2JDwusC9iahPKWMRvRjJSAN5mCXviuTGQ/lHnhvv8Q1YTpnfz9gA==
 
+"@types/blessed@^0.1.19":
+  version "0.1.19"
+  resolved "https://registry.yarnpkg.com/@types/blessed/-/blessed-0.1.19.tgz#aafb3ebad6036fbe63ba28285ca2bead624c3d14"
+  integrity sha512-r4qnseYWBsi/kxo5AAlCS22EnTXFbGpnvuXUubJikVeRnYB3e5HwV3NtcwJ0Sk5KOGaLvo9Rtwb8hzxfbqbQPg==
+  dependencies:
+    "@types/node" "*"
+
 "@types/nextgen-events@*":
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/@types/nextgen-events/-/nextgen-events-1.1.1.tgz#b716f48db4da240c23bf5e3ad597fb8ca81f6efc"
   integrity sha512-5ah4pA0NmgvlUp5BAAOj3VogC31OD7ZbU+VC9DYpy5o8zQKqnxCjnnckUDsCjGnynMwzV0NUlzj23Y5/y/xfXA==
 
-"@types/node@^16.7.10":
+"@types/node@*", "@types/node@^16.7.10":
   version "16.7.10"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-16.7.10.tgz#7aa732cc47341c12a16b7d562f519c2383b6d4fc"
   integrity sha512-S63Dlv4zIPb8x6MMTgDq5WWRJQe56iBEY0O3SOFA9JrRienkOVDXSXBjjJw6HTNQYSE2JI6GMCR6LVbIMHJVvA==
@@ -77,6 +84,11 @@ arg@^4.1.0:
   version "4.1.3"
   resolved "https://registry.yarnpkg.com/arg/-/arg-4.1.3.tgz#269fc7ad5b8e42cb63c896d5666017261c144089"
   integrity sha512-58S9QDqG0Xx27YwPSt9fJxivjYl432YCwfDMfZ+71RAqUrZef7LrKQZ3LHLOwCS4FLNBplP533Zx895SeOCHvA==
+
+blessed@^0.1.81:
+  version "0.1.81"
+  resolved "https://registry.yarnpkg.com/blessed/-/blessed-0.1.81.tgz#f962d687ec2c369570ae71af843256e6d0ca1129"
+  integrity sha1-+WLWh+wsNpVwrnGvhDJW5tDKESk=
 
 chroma-js@^2.1.2:
   version "2.1.2"
