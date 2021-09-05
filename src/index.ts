@@ -1,5 +1,8 @@
-import { exec } from 'child_process'
 import { terminal as term } from 'terminal-kit'
+import { exec } from 'child_process'
+import util from 'util'
+
+const execSync = util.promisify(exec)
 
 interface Country {
   code: string
@@ -12,14 +15,14 @@ interface City {
   load: string
 }
 
-function runCommand(command: string, callback: (result: string) => void): void {
-  exec(command, (error, stdout, stderr) => {
-    if (error != null) {
-      callback(stderr)
-    } else {
-      callback(stdout)
-    }
-  })
+async function runCommandSync(command: string): Promise<string> {
+  try {
+    const { stdout, stderr } = await execSync(command)
+    if (stderr !== '') return stderr
+    return stdout
+  } catch (err) {
+    throw Error(JSON.stringify(err, null, 2))
+  }
 }
 
 function fromTableTextToObject<T>(tableText: string, columns: number): T[] {
@@ -61,81 +64,89 @@ function fromTableTextToObject<T>(tableText: string, columns: number): T[] {
   return obj
 }
 
-function connect(selectedCountry: Country, selectedCity: City) {
-  console.log(selectedCountry, selectedCity)
+async function connectCountry(selectedCountry: Country) {
+  const result = await runCommandSync(
+    `sudo cyberghostvpn --connect --country-code "${selectedCountry.code}"`
+  )
+  term.green(result)
+  term.processExit(0)
+}
 
-  runCommand(
-    `sudo cyberghostvpn --connect --country-code "${selectedCountry.code}" --city "${selectedCity.name}"`,
-    (result: string) => {
-      term.green(result)
+async function connectCity(selectedCountry: Country, selectedCity: City) {
+  const result = await runCommandSync(
+    `sudo cyberghostvpn --connect --country-code "${selectedCountry.code}" --city "${selectedCity.name}"`
+  )
+  term.green(result)
+  term.processExit(0)
+}
+
+async function listCities(selectedCountry: Country): Promise<City[]> {
+  const tableText = await runCommandSync(
+    `cyberghostvpn --country-code ${selectedCountry.code} --city`
+  )
+  return fromTableTextToObject(tableText, 3)
+}
+
+async function selectOption<T extends { name: string }>(
+  options: T[]
+): Promise<T> {
+  const { selectedIndex } = await term.gridMenu(
+    options.map((option) => option.name)
+  ).promise
+  return options[selectedIndex]
+}
+
+async function listCountries(): Promise<Country[]> {
+  const tableText = await runCommandSync('cyberghostvpn --country-code')
+  return fromTableTextToObject(tableText, 2)
+}
+
+async function init() {
+  // STATUS
+  const status = await runCommandSync('cyberghostvpn --status')
+
+  // NOT CONNECTED
+  if (status.startsWith('No VPN connections found')) {
+    // SELECT COUNTRY
+    term.cyan('\nSelect a country:')
+    const countries = await listCountries()
+    const selectedCountry = await selectOption(countries)
+    term.green('\nSelected: %s', selectedCountry.name)
+
+    // SELECT CITY
+    const cities = await listCities(selectedCountry)
+    if (cities.length === 1) {
+      // only one, auto-select
+      connectCity(selectedCountry, cities[0])
+    } else {
+      term.cyan('\nSelect a city:')
+      const selectedCity = await selectOption([
+        { name: '*Best*', instance: '', load: '' },
+        ...cities,
+      ])
+      term.green('\nSelected: %s', selectedCity.name)
+      if (selectedCity.name === '*Best*') {
+        connectCountry(selectedCountry)
+      } else {
+        connectCity(selectedCountry, selectedCity)
+      }
+    }
+  } else {
+    // CONNECTED
+    term.green(`\n${status}\nDo you want to disconnect? [Y/n]\n`)
+    const wantDisconnect = await term.yesOrNo().promise
+
+    if (wantDisconnect) {
+      // DISCONNECT
+      const result = await runCommandSync(`sudo cyberghostvpn --stop`)
+      term.green(`\n${result}`)
+      term.processExit(0)
+    } else {
+      // EXIT
+      term.green(`\nNothing to do`)
       term.processExit(0)
     }
-  )
-}
-
-function listCities(country: Country) {
-  runCommand(
-    `cyberghostvpn --country-code ${country.code} --city`,
-    (tableText) => {
-      const cities: City[] = fromTableTextToObject(tableText, 3)
-
-      if (cities.length === 1) {
-        connect(country, cities[0])
-        return
-      }
-
-      term.gridMenu(
-        cities.map((city) => city.name),
-        { exitOnUnexpectedKey: true },
-        (error, response) => {
-          if (error == null) {
-            const selectedCity = cities[response.selectedIndex]
-            term.green('\nSelected: %s\n', selectedCity.name)
-            connect(country, selectedCity)
-          }
-        }
-      )
-    }
-  )
-}
-
-function selectCountry(countries: Country[]) {
-  term.cyan('Choose a country:\n')
-  term.gridMenu(
-    countries.map((country) => country.name),
-    { exitOnUnexpectedKey: true },
-    (error, response) => {
-      if (error == null) {
-        const selectedCountry = countries[response.selectedIndex]
-        term.green('\nSelected: %s\n', selectedCountry.name)
-        listCities(selectedCountry)
-      }
-    }
-  )
-}
-
-function listCountries() {
-  runCommand('cyberghostvpn --country-code', async (tableText) => {
-    const countries: Country[] = fromTableTextToObject(tableText, 2)
-    selectCountry(countries)
-  })
-}
-
-function init() {
-  runCommand('cyberghostvpn --status', async (status) => {
-    if (status.startsWith('No VPN connections found')) {
-      listCountries()
-    } else {
-      term.green(`\n${status}\nDo you want to disconnect?[y/n]`)
-      const wantDisconnect = await term.yesOrNo().promise
-      if (wantDisconnect) {
-        runCommand(`sudo cyberghostvpn --stop`, (result) => {
-          term.green(`\n${result}`)
-          term.processExit(0)
-        })
-      }
-    }
-  })
+  }
 }
 
 init()
