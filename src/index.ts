@@ -12,16 +12,6 @@ interface City {
   load: string
 }
 
-const commands = {
-  status: 'cyberghostvpn --status',
-  countries: 'cyberghostvpn --country-code',
-  cities: (countryCode: string) =>
-    `cyberghostvpn --country-code ${countryCode} --city`,
-  connect: (countryCode: string, cityName: string) =>
-    `sudo cyberghostvpn --connect --country-code ${countryCode} --city ${cityName}`,
-  disconnect: `sudo cyberghostvpn --stop`,
-}
-
 function runCommand(command: string, callback: (result: string) => void): void {
   exec(command, (error, stdout, stderr) => {
     if (error != null) {
@@ -38,12 +28,13 @@ function fromTableTextToObject<T>(tableText: string, columns: number): T[] {
   const totalColumns = columns + 2
   const tableCells = tableText
     .split('|')
-    .map((cell) => cell.replace(/\s|\-|\+|\./g, ''))
-  const headers = tableCells
-    .slice(0, totalColumns)
-    .map((header) =>
-      header.toLowerCase().replace('country', '').replace('city', 'name')
-    )
+    .map((cell) => cell.trim().replace(/\-|\+|\./g, ''))
+  const headers = tableCells.slice(0, totalColumns).map((header) =>
+    header
+      .toLowerCase()
+      .replace(/\s|\-|\+|\.|country/g, '')
+      .replace('city', 'name')
+  )
 
   tableCells
     .slice(totalColumns, tableCells.length - 1)
@@ -61,7 +52,7 @@ function fromTableTextToObject<T>(tableText: string, columns: number): T[] {
         ) {
           obj[rowIndex] = {
             ...obj[rowIndex],
-            [columnName.toLowerCase()]: value,
+            [columnName]: value,
           }
         }
       })
@@ -71,8 +62,10 @@ function fromTableTextToObject<T>(tableText: string, columns: number): T[] {
 }
 
 function connect(selectedCountry: Country, selectedCity: City) {
+  console.log(selectedCountry, selectedCity)
+
   runCommand(
-    commands.connect(selectedCountry.code, selectedCity.name),
+    `sudo cyberghostvpn --connect --country-code "${selectedCountry.code}" --city "${selectedCity.name}"`,
     (result: string) => {
       term.green(result)
       term.processExit(0)
@@ -81,25 +74,29 @@ function connect(selectedCountry: Country, selectedCity: City) {
 }
 
 function listCities(country: Country) {
-  runCommand(commands.cities(country.code), (tableText) => {
-    const cities: City[] = fromTableTextToObject(tableText, 3)
+  runCommand(
+    `cyberghostvpn --country-code ${country.code} --city`,
+    (tableText) => {
+      const cities: City[] = fromTableTextToObject(tableText, 3)
 
-    if (cities.length === 1) {
-      connect(country, cities[0])
-    }
-
-    term.gridMenu(
-      cities.map((city) => city.name),
-      { exitOnUnexpectedKey: true },
-      (error, response) => {
-        if (error == null) {
-          const selectedCity = cities[response.selectedIndex]
-          term.green('\nSelected: %s\n', selectedCity.name)
-          connect(country, selectedCity)
-        }
+      if (cities.length === 1) {
+        connect(country, cities[0])
+        return
       }
-    )
-  })
+
+      term.gridMenu(
+        cities.map((city) => city.name),
+        { exitOnUnexpectedKey: true },
+        (error, response) => {
+          if (error == null) {
+            const selectedCity = cities[response.selectedIndex]
+            term.green('\nSelected: %s\n', selectedCity.name)
+            connect(country, selectedCity)
+          }
+        }
+      )
+    }
+  )
 }
 
 function selectCountry(countries: Country[]) {
@@ -118,21 +115,21 @@ function selectCountry(countries: Country[]) {
 }
 
 function listCountries() {
-  runCommand(commands.countries, async (tableText) => {
+  runCommand('cyberghostvpn --country-code', async (tableText) => {
     const countries: Country[] = fromTableTextToObject(tableText, 2)
     selectCountry(countries)
   })
 }
 
 function init() {
-  runCommand(commands.status, async (status) => {
+  runCommand('cyberghostvpn --status', async (status) => {
     if (status.startsWith('No VPN connections found')) {
       listCountries()
     } else {
       term.green(`\n${status}\nDo you want to disconnect?[y/n]`)
       const wantDisconnect = await term.yesOrNo().promise
       if (wantDisconnect) {
-        runCommand(commands.disconnect, (result) => {
+        runCommand(`sudo cyberghostvpn --stop`, (result) => {
           term.green(`\n${result}`)
           term.processExit(0)
         })
